@@ -29,11 +29,14 @@ tasks:
       git clone --depth=1 -b 16.0 https://github.com/OCA/partner-contact
       git clone --depth=1 -b 16.0 https://github.com/OCA/web.git
       git clone --depth=1 -b 16.0 https://github.com/OpenEMS/odoo-openems.git
-      cd ../addons-enabled
+      cd ..
+      psql -h localhost -U postgres -c "CREATE USER odoo WITH PASSWORD 'odoo';" || true
+      psql -h localhost -U postgres -c "CREATE DATABASE prod OWNER odoo;" || true
+      cd addons-enabled
       ln -s ../addons-available/partner-contact/partner_firstname
       ln -s ../addons-available/web/web_m2x_options
       ln -s ../addons-available/odoo-openems/openems
-    command: odoo -d prod --addons-path=/workspace/odoo/addons-enabled -i base,partner_firstname,web_m2x_options,stock,openems
+    command: odoo -d prod --db_host=localhost --db_port=5432 --db_user=odoo --db_password=odoo --addons-path=/workspace/odoo/addons-enabled -i base,partner_firstname,web_m2x_options,stock,openems
 
 ports:
   - name: OpenEMS UI
@@ -60,7 +63,8 @@ ports:
     description: Cloud-side JSON/Websocket Api
     port: 8076
     onOpen: ignore
-  - name: OpenEMS Backend - Odoo XML-RPC Api
+  - name: PostgreSQL
+    description: Database used by Odoo
     port: 5432
     onOpen: ignore
   - name: OpenEMS Backend - Edge-Websocket

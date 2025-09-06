@@ -215,10 +215,32 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 		return this.getEdge(optEdgeId.get());
 	}
 
-	@Override
-	public Optional<Edge> getEdge(String edgeId) {
-		return Optional.ofNullable(this.edgeCache.getEdgeFromEdgeId(edgeId));
-	}
+        @Override
+        public Optional<Edge> getEdge(String edgeId) {
+                return Optional.ofNullable(this.getEdgeFromCacheOrDb(edgeId));
+        }
+
+        /**
+         * Gets an {@link MyEdge} from cache or reloads it from Postgres if it is not
+         * yet cached.
+         *
+         * @param edgeId the Edge-ID
+         * @return the {@link MyEdge} or {@code null} if not found
+         */
+        public MyEdge getEdgeFromCacheOrDb(String edgeId) {
+                var edge = this.edgeCache.getEdgeFromEdgeId(edgeId);
+                if (edge != null) {
+                        return edge;
+                }
+                if (this.postgresHandler != null) {
+                        try {
+                                return this.postgresHandler.edge.loadEdgeAndCache(this.edgeCache, edgeId).orElse(null);
+                        } catch (Exception e) {
+                                this.logWarn(this.log, "Unable to load Edge [" + edgeId + "] from Postgres: " + e.getMessage());
+                        }
+                }
+                return null;
+        }
 
 	@Override
 	public Optional<User> getUser(String userId) {
@@ -363,14 +385,16 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 			this.postgresHandler.getPeriodicWriteWorker().onLastMessage(edge);
 		}
 
-		case Edge.Events.ON_SET_SUM_STATE -> {
-			var edgeId = reader.getString(Edge.Events.OnSetSumState.EDGE_ID);
-			var sumState = (Level) reader.getProperty(Edge.Events.OnSetSumState.SUM_STATE);
+               case Edge.Events.ON_SET_SUM_STATE -> {
+                       var edgeId = reader.getString(Edge.Events.OnSetSumState.EDGE_ID);
+                       var sumState = (Level) reader.getProperty(Edge.Events.OnSetSumState.SUM_STATE);
 
-			var edge = this.edgeCache.getEdgeFromEdgeId(edgeId);
-			// Set Sum-State in Odoo/Postgres
-			this.postgresHandler.getPeriodicWriteWorker().onSetSumState(edge, sumState);
-		}
+                        var edge = this.getEdgeFromCacheOrDb(edgeId);
+                        if (edge != null) {
+                                // Set Sum-State in Odoo/Postgres
+                                this.postgresHandler.getPeriodicWriteWorker().onSetSumState(edge, sumState);
+                        }
+                }
 
 		case Edge.Events.ON_SET_PRODUCTTYPE -> {
 			var edge = (MyEdge) reader.getProperty(Edge.Events.OnSetProducttype.EDGE);

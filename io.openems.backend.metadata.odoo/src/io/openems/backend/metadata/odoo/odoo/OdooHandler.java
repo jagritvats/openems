@@ -422,11 +422,11 @@ public class OdooHandler {
 	 * @return the latest {@link SetupProtocolCoreInfo}
 	 * @throws OpenemsNamedException on error
 	 */
-	public SetupProtocolCoreInfo getLatestSetupProtocolCoreInfo(String edgeId) throws OpenemsNamedException {
-		final var edge = this.edgeCache.getEdgeFromEdgeId(edgeId);
-		if (edge == null) {
-			throw new OpenemsException("Edge not found for id [" + edgeId + "]");
-		}
+        public SetupProtocolCoreInfo getLatestSetupProtocolCoreInfo(String edgeId) throws OpenemsNamedException {
+                final var edge = this.parent.getEdgeFromCacheOrDb(edgeId);
+                if (edge == null) {
+                        throw new OpenemsException("Edge not found for id [" + edgeId + "]");
+                }
 
 		final var setupProtocolFilter = new Domain[] {
 				new Domain(Field.SetupProtocol.EDGE, Operator.EQ, edge.getOdooId()) };
@@ -456,11 +456,11 @@ public class OdooHandler {
 	 * @return the latest {@link SetupProtocolCoreInfo}
 	 * @throws OpenemsNamedException on error
 	 */
-	public List<SetupProtocolCoreInfo> getProtocolsCoreInfo(String edgeId) throws OpenemsNamedException {
-		final var edge = this.edgeCache.getEdgeFromEdgeId(edgeId);
-		if (edge == null) {
-			throw new OpenemsException("Edge not found for id [" + edgeId + "]");
-		}
+        public List<SetupProtocolCoreInfo> getProtocolsCoreInfo(String edgeId) throws OpenemsNamedException {
+                final var edge = this.parent.getEdgeFromCacheOrDb(edgeId);
+                if (edge == null) {
+                        throw new OpenemsException("Edge not found for id [" + edgeId + "]");
+                }
 
 		final var setupProtocolFilter = new Domain[] {
 				new Domain(Field.SetupProtocol.EDGE, Operator.EQ, edge.getOdooId()) };
@@ -578,12 +578,12 @@ public class OdooHandler {
 		OdooUtils.write(this.credentials, Field.EdgeDevice.ODOO_MODEL, new Integer[] { odooEdgeId },
 				new FieldValue<>(Field.EdgeDevice.COMMENT, comment));
 
-		// update edge cache
-		var edge = this.edgeCache.getEdgeFromEdgeId(edgeId);
-		if (edge != null) {
-			edge.setComment(comment);
-		}
-	}
+                // update edge cache
+                var edge = this.parent.getEdgeFromCacheOrDb(edgeId);
+                if (edge != null) {
+                        edge.setComment(comment);
+                }
+        }
 
 	/**
 	 * Call Odoo api to send mail via Odoo.

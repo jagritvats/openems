@@ -3,6 +3,15 @@ FROM gitpod/workspace-postgres
 RUN bash -c ". /home/gitpod/.sdkman/bin/sdkman-init.sh \
              && sdk install java 21.0.2-tem"
 
+# ensure required tools are available
+RUN sudo apt-get update \
+    && sudo apt-get install -y gnupg \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+# configure java path for subsequent shells
+ENV JAVA_HOME=/home/gitpod/.sdkman/candidates/java/current
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
 # disable angular analytics
 ENV NG_CLI_ANALYTICS=false
 

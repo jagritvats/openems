@@ -5,15 +5,18 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.zaxxer.hikari.HikariDataSource;
 
 import io.openems.backend.common.metadata.Metadata.GenericSystemLog;
+import io.openems.backend.metadata.odoo.EdgeCache;
 import io.openems.backend.metadata.odoo.Field;
 import io.openems.backend.metadata.odoo.Field.EdgeConfigUpdate;
 import io.openems.backend.metadata.odoo.Field.EdgeDevice;
+import io.openems.backend.metadata.odoo.MyEdge;
 import io.openems.common.channel.Level;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
@@ -38,7 +41,7 @@ public final class PgEdgeHandler {
 	 * @throws OpenemsNamedException on error
 	 * @throws SQLException          on error
 	 */
-	public EdgeConfig getEdgeConfig(String edgeId) throws SQLException, OpenemsNamedException {
+        public EdgeConfig getEdgeConfig(String edgeId) throws SQLException, OpenemsNamedException {
 		try (var con = this.dataSource.getConnection(); //
 				var pst = con.prepareStatement(new StringBuilder() //
 						.append("SELECT ").append(EdgeDevice.OPENEMS_CONFIG.id()) //
@@ -58,8 +61,37 @@ public final class PgEdgeHandler {
 				}
 			}
 		}
-		throw new OpenemsException("Unable to find EdgeConfig for [" + edgeId + "]");
-	}
+                throw new OpenemsException("Unable to find EdgeConfig for [" + edgeId + "]");
+        }
+
+        /**
+         * Loads an Edge from Postgres and updates the {@link EdgeCache}.
+         *
+         * @param edgeCache the {@link EdgeCache}
+         * @param edgeId    the Edge-ID
+         * @return the {@link MyEdge} if found; otherwise {@link Optional#empty()}
+         * @throws SQLException     on error
+         * @throws OpenemsException on error
+         */
+        public Optional<MyEdge> loadEdgeAndCache(EdgeCache edgeCache, String edgeId)
+                        throws SQLException, OpenemsException {
+                try (var con = this.dataSource.getConnection(); //
+                                var pst = con.prepareStatement(new StringBuilder() //
+                                                .append("SELECT ")
+                                                .append(Field.getSqlQueryFields(EdgeDevice.values())) //
+                                                .append(" FROM ").append(EdgeDevice.ODOO_TABLE) //
+                                                .append(" WHERE name = ?") //
+                                                .append(" LIMIT 1;") //
+                                                .toString())) {
+                        pst.setString(1, edgeId);
+                        try (var rs = pst.executeQuery()) {
+                                if (rs.next()) {
+                                        return Optional.of(edgeCache.addOrUpdate(rs));
+                                }
+                        }
+                }
+                return Optional.empty();
+        }
 
 	/**
 	 * Updates the {@link EdgeConfig} for an Edge-ID.
