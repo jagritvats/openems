@@ -1,0 +1,82 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: prod
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+    ports:
+      - "5432:5432"
+
+  openems-backend:
+    build:
+      context: ..
+      dockerfile: .gitpod.Dockerfile
+    user: "0:0"
+    working_dir: /workspace/openems
+    command: >
+      bash -lc 'touch /tmp/.gradle-lock && ./gradlew build buildBackend -x test && rm /tmp/.gradle-lock &&
+      java -Dfelix.cm.dir=/workspace/openems/tools/gitpod/openems-backend/config.d -jar build/openems-backend.jar'
+    volumes:
+      - ..:/workspace/openems
+    ports:
+      - "8075:8075"
+      - "8076:8076"
+      - "8079:8079"
+      - "8081:8081"
+      - "8082:8082"
+
+  openems-edge:
+    build:
+      context: ..
+      dockerfile: .gitpod.Dockerfile
+    user: "0:0"
+    working_dir: /workspace/openems
+    command: >
+      bash -lc 'sleep 10 && while [ -f /tmp/.gradle-lock ]; do sleep 1; done && ./gradlew build buildEdge -x test &&
+      java -Dfelix.cm.dir=/workspace/openems/tools/gitpod/openems-edge/config.d
+      -Dopenems.data.dir=/workspace/openems/tools/gitpod/openems-edge/data -jar build/openems-edge.jar'
+    volumes:
+      - ..:/workspace/openems
+    ports:
+      - "8080:8080"
+      - "8084:8084"
+      - "8085:8085"
+
+  openems-ui:
+    build:
+      context: ..
+      dockerfile: .gitpod.Dockerfile
+    working_dir: /workspace/openems/ui
+    user: "0:0"
+    command: bash -lc 'npm install && ng serve -c openems-gitpod --host 0.0.0.0 --disable-host-check'
+    volumes:
+      - ..:/workspace/openems
+    ports:
+      - "4200:4200"
+
+  odoo:
+    build:
+      context: ..
+      dockerfile: .gitpod.Dockerfile
+    user: "0:0"
+    depends_on:
+      - postgres
+    command: >
+      bash -lc 'mkdir -p /workspace/odoo && cd /workspace/odoo &&
+      mkdir -p addons-available addons-enabled && cd addons-available &&
+      git clone --depth=1 -b 16.0 https://github.com/OCA/partner-contact &&
+      git clone --depth=1 -b 16.0 https://github.com/OCA/web.git &&
+      git clone --depth=1 -b 16.0 https://github.com/OpenEMS/odoo-openems.git &&
+      cd ../addons-enabled &&
+      ln -s ../addons-available/partner-contact/partner_firstname &&
+      ln -s ../addons-available/web/web_m2x_options &&
+      ln -s ../addons-available/odoo-openems/openems &&
+      odoo -d prod --db_host=postgres --db_port=5432 --db_user=odoo --db_password=odoo \
+      --addons-path=/workspace/odoo/addons-enabled -i base,partner_firstname,web_m2x_options,stock,openems'
+    volumes:
+      - ..:/workspace/openems
+    ports:
+      - "8069:8069"
